@@ -17,6 +17,10 @@ Objetivo: rodar o motor em 3 imóveis reais e medir tempo, custo e qualidade (sp
 Seguir o guia do spec §10. Por imóvel, uma pasta `~/visitta-capturas/<imovel>/` com os vídeos e/ou fotos.
 Pelo menos um dos 3 imóveis só com fotos, para medir o caminho alternativo.
 
+**Desligue o vídeo HDR antes de gravar** (iPhone: Ajustes → Câmera → Gravar Vídeo → Vídeo HDR).
+O motor ainda não faz tone-mapping: vídeo HDR vira quadros lavados e o tour sai com a cor errada,
+o que estragaria a avaliação de qualidade do spike.
+
 ## Por job (um imóvel × um preset)
 
     cd engine

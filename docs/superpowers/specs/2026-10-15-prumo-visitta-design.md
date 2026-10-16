@@ -172,7 +172,8 @@ continua separada (Stripe aqui, Asaas lá).
 Tela curta antes do primeiro upload (6 regras + vídeo de 30 s), checklist ao lado do botão de enviar,
 e guia sob medida depois de falha de captura.
 
-- **Vídeo:** horizontal, lente 1x, 4K30 ou 1080p60; travar foco e exposição; luzes acesas, sem contraluz;
+- **Vídeo:** horizontal, lente 1x, 4K30 ou 1080p60, **HDR desligado** (no iPhone: Ajustes → Câmera →
+  Gravar Vídeo → Vídeo HDR; o motor ainda não converte HDR e os quadros sairiam lavados); travar foco e exposição; luzes acesas, sem contraluz;
   andar devagar (meio passo por segundo), câmera no peito, **nunca girar parado**; contornar cada
   cômodo olhando para o centro; atravessar portas devagar; sem pessoas ou pets no quadro; espelhos e
   vidros geram aviso; 1–2 min por cômodo, até 10 min.
