@@ -3,6 +3,7 @@
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive \
     TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9" \
+    MAX_JOBS=2 \
     UV_PYTHON_INSTALL_DIR=/opt/python \
     UV_LINK_MODE=copy
 RUN apt-get update && apt-get install -y --no-install-recommends git build-essential ca-certificates \
@@ -13,7 +14,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /usr/local/bin/uv
 RUN uv venv -p 3.11 /opt/train \
     && uv pip install -p /opt/train torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124 \
     && uv pip install -p /opt/train ninja setuptools wheel numpy
-RUN git clone --depth 1 -b v1.5.3 https://github.com/nerfstudio-project/gsplat /opt/gsplat \
+# --recurse-submodules: o glm (cabeçalhos do CUDA) vem como submódulo
+RUN git clone --depth 1 --recurse-submodules --shallow-submodules -b v1.5.3 https://github.com/nerfstudio-project/gsplat /opt/gsplat \
     && uv pip install -p /opt/train --no-build-isolation /opt/gsplat \
     && uv pip install -p /opt/train --no-build-isolation -r /opt/gsplat/examples/requirements.txt
 
