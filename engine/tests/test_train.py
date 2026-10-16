@@ -30,6 +30,7 @@ def test_train_command(tmp_path):
     assert "--ply-steps 30000" in joined
     assert "--save-ply" in cmd
     assert "--disable-viewer" in cmd
+    assert "--disable-video" in cmd  # eval no último passo dispara render_traj, que gera um MP4 que ninguém usa
 
 
 def test_find_final_ply_picks_highest_step(tmp_path):

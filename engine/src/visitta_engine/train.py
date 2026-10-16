@@ -42,6 +42,7 @@ def train_command(preset: Preset, data_dir: Path, result_dir: Path, *, python: s
         "--ply-steps", steps,
         "--save-ply",
         "--disable-viewer",
+        "--disable-video",
     ]
 
 
