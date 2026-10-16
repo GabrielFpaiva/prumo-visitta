@@ -34,7 +34,10 @@ def test_unknown_code_is_rejected():
     [
         ("OSError: [Errno 28] No space left on device", "HOST_DISK"),
         ("RuntimeError: CUDA error: an illegal memory access", "HOST_CUDA"),
-        ("torch.OutOfMemoryError: CUDA out of memory", "HOST_CUDA"),
+        ("torch.OutOfMemoryError: CUDA out of memory", "ENGINE_ERROR"),
+        ("RuntimeError: no CUDA-capable device is detected", "HOST_CUDA"),
+        ("RuntimeError: The NVIDIA driver on your system is too old", "HOST_CUDA"),
+        ('File "/opt/train/lib/python3.11/site-packages/gsplat/cuda/_wrapper.py", line 3\nKeyError: 7', "ENGINE_ERROR"),
         ("NVIDIA-SMI has failed because it couldn't communicate", "HOST_CUDA"),
         ("KeyError: 'image_042.jpg'", "ENGINE_ERROR"),
     ],

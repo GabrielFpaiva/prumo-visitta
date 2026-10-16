@@ -32,11 +32,24 @@ class EngineError(Exception):
         return _EXIT_CODES[self.category]
 
 
+# Assinaturas de GPU/driver quebrados no host. Falta de memória fica de fora: depende da cena
+# e do preset, e repetir em outro host só queima mais 30 min de treino.
+_HOST_CUDA_SIGNS = (
+    "cuda error",
+    "no cuda-capable device",
+    "cuda driver",
+    "nvidia driver",
+    "nvidia-smi has failed",
+)
+
+
 def classify_command_failure(stderr_tail: str) -> str:
     """Decide se a falha de um comando externo é do host (repetível) ou do motor."""
     text = stderr_tail.lower()
     if "no space left" in text:
         return "HOST_DISK"
-    if "cuda" in text or "nvidia" in text:
+    if "out of memory" in text:
+        return "ENGINE_ERROR"
+    if any(sign in text for sign in _HOST_CUDA_SIGNS):
         return "HOST_CUDA"
     return "ENGINE_ERROR"

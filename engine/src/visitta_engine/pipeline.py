@@ -67,7 +67,9 @@ def run_pipeline(manifest: Manifest, work: Path, deps: Deps, report: Report) -> 
         for j, video in enumerate(videos):
             try:
                 frames = extract_video_frames(video, images / f"video{j}", deps.runner, cap=per_video)
-            except CommandFailed:
+            except CommandFailed as exc:
+                if not _is_unreadable_video(exc):
+                    raise
                 report.skipped_videos += 1
                 continue
             n_frames += len(frames)
@@ -105,6 +107,14 @@ def run_pipeline(manifest: Manifest, work: Path, deps: Deps, report: Report) -> 
             upload(viewer, manifest.outputs.viewer_url, "text/html; charset=utf-8", backoff=deps.transfer_backoff)
 
 
+def _is_unreadable_video(exc: CommandFailed) -> bool:
+    """Só o ffmpeg recusando o arquivo conta como vídeo ruim. Binário ausente (127), processo
+    morto por sinal (< 0), disco cheio ou GPU quebrada não são culpa da captura."""
+    if exc.returncode <= 0 or exc.returncode == 127:
+        return False
+    return classify_command_failure(exc.stderr_tail) == "ENGINE_ERROR"
+
+
 def _as_engine_error(exc: BaseException) -> EngineError:
     if isinstance(exc, EngineError):
         return exc
@@ -112,17 +122,20 @@ def _as_engine_error(exc: BaseException) -> EngineError:
         return EngineError(classify_command_failure(exc.stderr_tail), exc.stderr_tail[-500:])
     if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
         return EngineError("HOST_DISK", str(exc))
-    return EngineError("ENGINE_ERROR", f"{type(exc).__name__}: {exc}")
+    detail = f"{type(exc).__name__}: {exc}"
+    # pycolmap roda no processo: erro de CUDA dele chega como RuntimeError, sem passar pelo Runner
+    return EngineError(classify_command_failure(detail), detail)
 
 
 def _upload_report(manifest: Manifest, work: Path, report: Report, deps: Deps) -> None:
-    path = work / "report.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(report.to_json())
+    """Nunca levanta: o evento final (concluiu/falhou) e o exit code vêm depois e importam mais."""
     try:
+        path = work / "report.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(report.to_json())
         upload(path, manifest.outputs.report_url, "application/json", backoff=deps.transfer_backoff)
-    except EngineError as exc:
-        print(f"relatório não subiu: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        print(f"relatório não subiu: {exc!r}", file=sys.stderr)
 
 
 def run_job(manifest: Manifest, work: Path, deps: Deps) -> int:
