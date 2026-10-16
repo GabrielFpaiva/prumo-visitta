@@ -11,13 +11,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends git build-essen
 COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /usr/local/bin/uv
 
 # venv do treino (o requirements do gsplat traz outro pacote chamado pycolmap: fica isolado aqui)
-RUN uv venv -p 3.11 /opt/train \
+# A trava impede que o requirements dos exemplos troque o torch (sem ela o uv puxa o mais novo,
+# que não casa com o gsplat compilado e estoura o disco do runner).
+RUN printf 'torch==2.5.1+cu124\nnumpy<2\n' > /opt/train-constraints.txt \
+    && uv venv -p 3.11 /opt/train \
     && uv pip install -p /opt/train torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124 \
-    && uv pip install -p /opt/train ninja setuptools wheel numpy
+    && uv pip install -p /opt/train -c /opt/train-constraints.txt ninja setuptools wheel numpy
 # --recurse-submodules: o glm (cabeçalhos do CUDA) vem como submódulo
 RUN git clone --depth 1 --recurse-submodules --shallow-submodules -b v1.5.3 https://github.com/nerfstudio-project/gsplat /opt/gsplat \
-    && uv pip install -p /opt/train --no-build-isolation /opt/gsplat \
-    && uv pip install -p /opt/train --no-build-isolation -r /opt/gsplat/examples/requirements.txt
+    && uv pip install -p /opt/train --no-build-isolation -c /opt/train-constraints.txt /opt/gsplat
+RUN uv pip install -p /opt/train --no-build-isolation -c /opt/train-constraints.txt \
+        --extra-index-url https://download.pytorch.org/whl/cu124 --index-strategy unsafe-best-match \
+        -r /opt/gsplat/examples/requirements.txt \
+    && /opt/train/bin/python -c "import torch; assert torch.__version__ == '2.5.1+cu124', torch.__version__"
 
 # venv do motor
 COPY pyproject.toml README.md /src/engine/
