@@ -60,7 +60,7 @@ def run_pipeline(manifest: Manifest, work: Path, deps: Deps, report: Report) -> 
         normalized = normalize_photos(photos, images / "fotos") if photos else None
         if normalized is not None:
             report.skipped_photos = normalized.skipped
-        n_photos = len(normalized.paths) if normalized else 0
+        n_photos = len(_keep_evenly(normalized.paths, MAX_IMAGES)) if normalized else 0
         remaining = max(0, MAX_IMAGES - n_photos)
         per_video = remaining // len(videos) if videos else 0
         n_frames = 0
@@ -105,6 +105,18 @@ def run_pipeline(manifest: Manifest, work: Path, deps: Deps, report: Report) -> 
         upload(sog, manifest.outputs.splat_url, "application/octet-stream", backoff=deps.transfer_backoff)
         if viewer is not None and manifest.outputs.viewer_url:
             upload(viewer, manifest.outputs.viewer_url, "text/html; charset=utf-8", backoff=deps.transfer_backoff)
+
+
+def _keep_evenly(paths: list[Path], limit: int) -> list[Path]:
+    """Apaga o excesso espalhado pela captura, não só o fim (que seria o último cômodo)."""
+    if len(paths) <= limit:
+        return paths
+    step = len(paths) / limit
+    keep = {int(k * step) for k in range(limit)}
+    for i, path in enumerate(paths):
+        if i not in keep:
+            path.unlink()
+    return [p for i, p in enumerate(paths) if i in keep]
 
 
 def _is_unreadable_video(exc: CommandFailed) -> bool:

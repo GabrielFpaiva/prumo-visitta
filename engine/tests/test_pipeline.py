@@ -199,3 +199,12 @@ def test_failure_is_reported_even_when_report_cannot_be_written(store, tmp_path,
     assert code == 20
     last, _ = store.events[-1]
     assert last["type"] == "falhou" and last["code"] == "HOST_DISK"
+
+
+def test_photo_heavy_job_is_capped_at_300_images(store, tmp_path):
+    m = setup(store, tmp_path, photos=310)
+    colmap = FakeColmap()
+    assert run_job(m, tmp_path / "work", deps_for(m, FakeRunner(), colmap)) == 0
+    assert colmap.total == 300
+    assert report_of(store)["imagesTotal"] == 300
+
