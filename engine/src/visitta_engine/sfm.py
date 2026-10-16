@@ -75,14 +75,18 @@ class SfmResult:
 
 
 def run_sfm(images: Path, work: Path, backend: ColmapBackend) -> SfmResult:
-    total = len(list(images.rglob("*.jpg")))
+    found = list(images.rglob("*.jpg"))
+    total = len(found)
     work.mkdir(parents=True, exist_ok=True)
     database = work / "database.db"
     output = work / "sparse_all"
     output.mkdir(parents=True, exist_ok=True)
 
     backend.extract(database, images)
-    backend.match(database, sequential=total > EXHAUSTIVE_MAX_IMAGES)
+    # O sequencial casa vizinhos pela ordem do nome; entre pastas (retrato/paisagem, vídeos
+    # diferentes) essa ordem não é a da captura e a cena racha em modelos separados.
+    one_sequence = len({p.parent for p in found}) == 1
+    backend.match(database, sequential=total > EXHAUSTIVE_MAX_IMAGES and one_sequence)
     models = backend.map(database, images, output)
     if not models:
         raise EngineError("CAPTURE_INSUFFICIENT", f"0/{total} imagens registradas")

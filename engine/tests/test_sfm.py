@@ -102,3 +102,14 @@ def test_mixed_orientation_photos_all_reach_the_database(tmp_path):
         assert database.num_images() == 4
     finally:
         database.close()
+
+
+def test_inputs_split_across_folders_use_exhaustive_matching(tmp_path):
+    images = tmp_path / "images"
+    for folder, n in (("fotos/1920x1080", 76), ("fotos/1080x1920", 75)):
+        (images / folder).mkdir(parents=True)
+        for i in range(n):
+            (images / folder / f"foto_{i:04d}.jpg").write_bytes(b"jpg")
+    backend = FakeBackend([ModelSummary(0, 151)])
+    run_sfm(images, tmp_path / "colmap", backend)
+    assert backend.sequential is False
