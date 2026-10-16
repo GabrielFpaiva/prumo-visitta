@@ -82,3 +82,23 @@ def test_pycolmap_backend_runs_on_cpu(tmp_path):
     out.mkdir()
     models = backend.map(db, images, out)
     assert isinstance(models, list)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("pycolmap") is None, reason="pycolmap ausente")
+def test_mixed_orientation_photos_all_reach_the_database(tmp_path):
+    """PER_FOLDER dá uma câmera por pasta; foto de tamanho diferente na mesma pasta é descartada."""
+    import pycolmap
+
+    from visitta_engine.inputs import normalize_photos
+
+    src = [make_photo(tmp_path / "src" / f"{i}.jpg", size=(640, 480), orientation=6 if i % 2 else None, seed=i)
+           for i in range(4)]
+    images = tmp_path / "images"
+    normalize_photos(src, images / "fotos")
+    db = tmp_path / "database.db"
+    PycolmapBackend().extract(db, images)
+    database = pycolmap.Database.open(str(db))
+    try:
+        assert database.num_images() == 4
+    finally:
+        database.close()

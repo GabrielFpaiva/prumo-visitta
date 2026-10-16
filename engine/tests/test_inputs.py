@@ -59,3 +59,32 @@ def test_skips_unreadable_photo(tmp_path):
     result = normalize_photos([good, bad], tmp_path / "out")
     assert len(result.paths) == 1
     assert result.skipped == 1
+
+
+def test_truncated_heic_is_skipped(tmp_path):
+    good = make_photo(tmp_path / "src" / "IMG_0001.heic")
+    data = make_photo(tmp_path / "src" / "IMG_0002.heic", seed=3).read_bytes()
+    cut = tmp_path / "src" / "IMG_0002.heic"
+    cut.write_bytes(data[: len(data) // 2])
+    result = normalize_photos([good, cut], tmp_path / "out")
+    assert len(result.paths) == 1
+    assert result.skipped == 1
+
+
+def test_groups_photos_by_size_so_each_folder_is_one_camera(tmp_path):
+    wide = make_photo(tmp_path / "src" / "a.jpg", size=(640, 480))
+    tall = make_photo(tmp_path / "src" / "b.jpg", size=(640, 480), orientation=6)
+    result = normalize_photos([wide, tall], tmp_path / "out")
+    folders = {p.parent.name: size_of(p) for p in result.paths}
+    assert folders == {"640x480": (640, 480), "480x640": (480, 640)}
+    assert all(p.parent.parent == tmp_path / "out" for p in result.paths)
+
+
+def test_oversized_photo_is_skipped(tmp_path, monkeypatch):
+    # Pillow levanta DecompressionBombError (não é OSError) acima de 2× MAX_IMAGE_PIXELS
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    good = make_photo(tmp_path / "src" / "ok.jpg", size=(40, 20))
+    huge = make_photo(tmp_path / "src" / "pano.jpg", size=(800, 600))
+    result = normalize_photos([good, huge], tmp_path / "out")
+    assert len(result.paths) == 1
+    assert result.skipped == 1

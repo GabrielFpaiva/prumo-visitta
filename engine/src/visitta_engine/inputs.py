@@ -16,6 +16,10 @@ _EXIF_IFD = 0x8769
 _DATETIME_ORIGINAL = 36867
 
 
+# ValueError: pillow-heif com HEIC cortado; DecompressionBombError não herda de OSError.
+_UNREADABLE = (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError)
+
+
 @dataclass(frozen=True)
 class NormalizedPhotos:
     paths: list[Path]
@@ -26,13 +30,14 @@ def _capture_time(path: Path) -> str:
     try:
         with Image.open(path) as im:
             value = im.getexif().get_ifd(_EXIF_IFD).get(_DATETIME_ORIGINAL, "")
-    except (UnidentifiedImageError, OSError):
+    except _UNREADABLE:
         return ""
     return value if isinstance(value, str) else ""
 
 
 def normalize_photos(sources: Sequence[Path], out_dir: Path, max_side: int = MAX_SIDE) -> NormalizedPhotos:
-    out_dir.mkdir(parents=True, exist_ok=True)
+    """Grava em `out_dir/<L>x<A>/`: o COLMAP (PER_FOLDER) dá uma câmera por pasta e descarta
+    foto de tamanho diferente da primeira, então retrato e paisagem precisam de pastas próprias."""
     ordered = sorted(sources, key=lambda p: (_capture_time(p), p.name))
     paths: list[Path] = []
     skipped = 0
@@ -40,11 +45,13 @@ def normalize_photos(sources: Sequence[Path], out_dir: Path, max_side: int = MAX
         try:
             with Image.open(src) as im:
                 upright = ImageOps.exif_transpose(im).convert("RGB")
-        except (UnidentifiedImageError, OSError):
+        except _UNREADABLE:
             skipped += 1
             continue
         upright.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
-        dest = out_dir / f"foto_{len(paths):04d}.jpg"
+        folder = out_dir / f"{upright.width}x{upright.height}"
+        folder.mkdir(parents=True, exist_ok=True)
+        dest = folder / f"foto_{len(paths):04d}.jpg"
         upright.save(dest, "JPEG", quality=92)
         paths.append(dest)
     return NormalizedPhotos(paths=paths, skipped=skipped)
