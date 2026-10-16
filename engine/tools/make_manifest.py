@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from visitta_engine.manifest import PHOTO_EXTS, VIDEO_EXTS
@@ -83,7 +84,9 @@ def main() -> None:
     s3.put_object(Bucket=args.bucket, Key=manifest_key, Body=json.dumps(manifest).encode())
 
     print("\nVISITTA_MANIFEST_URL=" + presign("get_object")(manifest_key))
-    print("\nSaídas (válidas por 3h depois do job; gere de novo se expirar):")
+    # Assinados agora, não ao fim do job: um job de 90 min deixa só 90 min para baixar.
+    deadline = datetime.now() + timedelta(seconds=EXPIRES_SECONDS)
+    print(f"\nSaídas (links valem até {deadline:%H:%M}; depois, assine de novo):")
     for name in ("tour.sog", "viewer.html", "report.json"):
         print(f"  {name}: {presign('get_object')(f'spike/{job_id}/out/{name}')}")
 
