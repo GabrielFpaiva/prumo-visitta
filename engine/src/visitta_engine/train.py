@@ -29,18 +29,19 @@ _VAL_STEP = re.compile(r"val_step(\d+)\.json$")
 
 
 def train_command(preset: Preset, data_dir: Path, result_dir: Path, *, python: str, trainer: str) -> list[str]:
+    """Flags com hífen: é o formato que o tyro do simple_trainer v1.5.3 aceita (conferido no smoke do CI)."""
     steps = str(preset.max_steps)
     return [
         python, trainer, preset.strategy,
-        "--data_dir", str(data_dir),
-        "--data_factor", "1",
-        "--result_dir", str(result_dir),
-        "--max_steps", steps,
-        "--save_steps", steps,
-        "--eval_steps", steps,
-        "--ply_steps", steps,
-        "--save_ply",
-        "--disable_viewer",
+        "--data-dir", str(data_dir),
+        "--data-factor", "1",
+        "--result-dir", str(result_dir),
+        "--max-steps", steps,
+        "--save-steps", steps,
+        "--eval-steps", steps,
+        "--ply-steps", steps,
+        "--save-ply",
+        "--disable-viewer",
     ]
 
 

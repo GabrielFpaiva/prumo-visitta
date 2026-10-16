@@ -24,12 +24,12 @@ def test_train_command(tmp_path):
     cmd = train_command(PRESETS["boa"], tmp_path / "data", tmp_path / "res", python="/opt/train/bin/python", trainer="/opt/gsplat/examples/simple_trainer.py")
     assert cmd[:3] == ["/opt/train/bin/python", "/opt/gsplat/examples/simple_trainer.py", "default"]
     joined = " ".join(cmd)
-    assert f"--data_dir {tmp_path / 'data'}" in joined
-    assert "--data_factor 1" in joined
-    assert "--max_steps 30000" in joined
-    assert "--ply_steps 30000" in joined
-    assert "--save_ply" in cmd
-    assert "--disable_viewer" in cmd
+    assert f"--data-dir {tmp_path / 'data'}" in joined
+    assert "--data-factor 1" in joined
+    assert "--max-steps 30000" in joined
+    assert "--ply-steps 30000" in joined
+    assert "--save-ply" in cmd
+    assert "--disable-viewer" in cmd
 
 
 def test_find_final_ply_picks_highest_step(tmp_path):

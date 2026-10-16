@@ -34,7 +34,7 @@ class FakeRunner:
         else:  # trainer
             if self.train_error:
                 raise CommandFailed(cmd, 1, self.train_error)
-            result = Path(cmd[cmd.index("--result_dir") + 1])
+            result = Path(cmd[cmd.index("--result-dir") + 1])
             ply = result / "ply" / "point_cloud_29999.ply"
             ply.parent.mkdir(parents=True)
             ply.write_bytes(b"ply\nelement vertex 500000\nend_header\n")
