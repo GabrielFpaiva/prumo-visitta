@@ -153,18 +153,21 @@ def _upload_report(manifest: Manifest, work: Path, report: Report, deps: Deps) -
 def run_job(manifest: Manifest, work: Path, deps: Deps) -> int:
     report = Report(job_id=manifest.job_id, preset=manifest.preset, gpu=deps.gpu)
     deps.notifier.send("iniciou")
-    try:
-        with deps.notifier.heartbeat():
+    err: EngineError | None = None
+    # O relatório pode levar minutos com retentativas: sem heartbeat nesse trecho, o orquestrador
+    # acha que o host morreu. O evento final sai depois, para nenhum `progresso` chegar atrasado.
+    with deps.notifier.heartbeat():
+        try:
             run_pipeline(manifest, work, deps, report)
-    except Exception as exc:  # noqa: BLE001 — toda falha vira código do spec
-        err = _as_engine_error(exc)
-        if err.code == "ENGINE_ERROR":
-            traceback.print_exc()
-        report.error = err.code
+        except Exception as exc:  # noqa: BLE001 — toda falha vira código do spec
+            err = _as_engine_error(exc)
+            if err.code == "ENGINE_ERROR":
+                traceback.print_exc()
+            report.error = err.code
         _upload_report(manifest, work, report, deps)
+    if err is not None:
         deps.notifier.send("falhou", code=err.code, retryable=err.retryable, detail=err.detail[-300:])
         print(f"falhou: {err}", file=sys.stderr)
         return err.exit_code
-    _upload_report(manifest, work, report, deps)
     deps.notifier.send("concluiu", splatBytes=report.splat_bytes, gaussians=report.gaussians)
     return 0

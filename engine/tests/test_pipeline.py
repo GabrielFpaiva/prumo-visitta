@@ -208,3 +208,41 @@ def test_photo_heavy_job_is_capped_at_300_images(store, tmp_path):
     assert colmap.total == 300
     assert report_of(store)["imagesTotal"] == 300
 
+
+def test_heartbeat_covers_report_delivery_but_not_the_final_event(store, tmp_path, monkeypatch):
+    from contextlib import contextmanager
+
+    import visitta_engine.pipeline as pipeline
+
+    class TrackingNotifier(Notifier):
+        beating = False
+        log = []
+
+        @contextmanager
+        def heartbeat(self, interval=120.0):
+            self.beating = True
+            try:
+                yield
+            finally:
+                self.beating = False
+
+        def send(self, type, **fields):
+            self.log.append((type, self.beating))
+            super().send(type, **fields)
+
+    real_upload = pipeline.upload
+    report_uploads = []
+
+    def tracking_upload(path, url, *args, **kwargs):
+        if url == m.outputs.report_url:
+            report_uploads.append(deps.notifier.beating)
+        return real_upload(path, url, *args, **kwargs)
+
+    monkeypatch.setattr(pipeline, "upload", tracking_upload)
+    for runner, final in ((FakeRunner(), "concluiu"), (FakeRunner(train_error="boom"), "falhou")):
+        m = setup(store, tmp_path / final, videos=2)
+        deps = deps_for(m, runner)
+        deps.notifier = TrackingNotifier(m.callback, m.job_id)
+        run_job(m, tmp_path / final / "work", deps)
+        assert report_uploads[-1] is True
+        assert deps.notifier.log[-1] == (final, False)
