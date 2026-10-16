@@ -29,14 +29,18 @@ def _gpu_name() -> str | None:
 
 def _load_manifest(args: argparse.Namespace, work: Path) -> dict:
     if args.manifest_file:
-        return json.loads(Path(args.manifest_file).read_text())
+        return _parse_json(Path(args.manifest_file))
     url = args.manifest_url or os.environ.get("VISITTA_MANIFEST_URL")
     if not url:
         raise EngineError("MANIFEST_INVALID", "passe --manifest-url, --manifest-file ou VISITTA_MANIFEST_URL")
     dest = work / "manifest.json"
     download(url, dest, backoff=1.0)
+    return _parse_json(dest)
+
+
+def _parse_json(path: Path) -> dict:
     try:
-        return json.loads(dest.read_text())
+        return json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         raise EngineError("MANIFEST_INVALID", f"JSON inválido: {exc}") from exc
 

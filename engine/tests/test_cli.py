@@ -31,3 +31,12 @@ def test_missing_manifest_source_exits_30(tmp_path):
     env = {"PATH": "/usr/bin:/bin"}
     result = run_cli("run", "--workdir", str(tmp_path / "w"), env=env)
     assert result.returncode == 30
+
+
+def test_malformed_manifest_file_exits_30(tmp_path):
+    bad = tmp_path / "m.json"
+    bad.write_text("{not json")
+    result = run_cli("run", "--manifest-file", str(bad), "--workdir", str(tmp_path / "w"))
+    assert result.returncode == 30
+    assert "MANIFEST_INVALID" in result.stderr
+    assert "Traceback" not in result.stderr
