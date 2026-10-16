@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import hmac
+import http.client
 import json
 import shutil
 import sys
 import threading
 import time
-import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -21,6 +22,15 @@ from .manifest import Callback
 
 SIGNATURE_HEADER = "X-Visitta-Signature"
 TIMEOUT_SECONDS = 60
+# URLError, timeout, conexão e SSL são OSError; IncompleteRead e BadStatusLine são HTTPException.
+_NETWORK_ERRORS = (OSError, http.client.HTTPException)
+
+
+def _network_failure(exc: BaseException) -> str:
+    """Disco cheio não é falha de rede: sobe como OSError para virar HOST_DISK."""
+    if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+        raise exc
+    return str(exc)
 
 
 def download(url: str, dest: Path, *, attempts: int = 3, backoff: float = 2.0) -> None:
@@ -30,9 +40,13 @@ def download(url: str, dest: Path, *, attempts: int = 3, backoff: float = 2.0) -
         try:
             with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as resp, dest.open("wb") as fh:
                 shutil.copyfileobj(resp, fh, length=1 << 20)
+                expected = resp.headers.get("Content-Length")
+            # http.client não reclama de corpo menor que o Content-Length quando a conexão fecha
+            if expected is not None and dest.stat().st_size != int(expected):
+                raise http.client.IncompleteRead(b"", int(expected) - dest.stat().st_size)
             return
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-            last = str(exc)
+        except _NETWORK_ERRORS as exc:
+            last = _network_failure(exc) or type(exc).__name__
             time.sleep(backoff * (attempt + 1))
     raise EngineError("HOST_DOWNLOAD", last)
 
@@ -49,8 +63,8 @@ def upload(path: Path, url: str, content_type: str, *, attempts: int = 3, backof
                 )
                 with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS):
                     return
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-            last = str(exc)
+        except _NETWORK_ERRORS as exc:
+            last = _network_failure(exc) or type(exc).__name__
             time.sleep(backoff * (attempt + 1))
     raise EngineError("HOST_UPLOAD", last)
 
@@ -80,8 +94,8 @@ class Notifier:
         try:
             with urllib.request.urlopen(req, timeout=10):
                 pass
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-            print(f"callback {type} falhou: {exc}", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 — callback nunca derruba o job
+            print(f"callback {type} falhou: {exc!r}", file=sys.stderr)
 
     @contextmanager
     def heartbeat(self, interval: float = 120.0) -> Iterator[None]:

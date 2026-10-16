@@ -12,6 +12,7 @@ class FakeStore:
         self.objects: dict[str, bytes] = {}
         self.events: list[tuple[dict, str]] = []
         self.fail: dict[str, int] = {}
+        self.truncate: dict[str, int] = {}  # próximas n respostas mandam metade do corpo e fecham
         store = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -38,6 +39,11 @@ class FakeStore:
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
+                if store.truncate.get(self.path, 0) > 0:
+                    store.truncate[self.path] -= 1
+                    self.wfile.write(body[: len(body) // 2])
+                    self.close_connection = True
+                    return
                 self.wfile.write(body)
 
             def do_PUT(self):

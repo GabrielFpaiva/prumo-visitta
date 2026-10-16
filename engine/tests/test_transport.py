@@ -70,3 +70,62 @@ def test_heartbeat_reports_current_stage(store):
     beats = [b for b, _ in store.events if b["type"] == "progresso"]
     assert len(beats) >= 2
     assert all(b["stage"] == "treino" for b in beats)
+
+
+def test_truncated_download_is_retried(store, tmp_path):
+    store.objects["/in/0"] = b"v" * 100_000
+    store.truncate["/in/0"] = 1
+    download(store.url("/in/0"), tmp_path / "x.bin", backoff=0)
+    assert (tmp_path / "x.bin").stat().st_size == 100_000
+
+
+def test_always_truncated_download_is_host_error(store, tmp_path):
+    store.objects["/in/0"] = b"v" * 100_000
+    store.truncate["/in/0"] = 99
+    with pytest.raises(EngineError) as exc:
+        download(store.url("/in/0"), tmp_path / "x.bin", backoff=0)
+    assert exc.value.code == "HOST_DOWNLOAD"
+
+
+def test_full_disk_during_download_is_not_a_network_error(store, tmp_path, monkeypatch):
+    import errno
+    import shutil
+
+    store.objects["/in/0"] = b"abc"
+
+    def full(*args, **kwargs):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(shutil, "copyfileobj", full)
+    with pytest.raises(OSError) as exc:
+        download(store.url("/in/0"), tmp_path / "x.bin", backoff=0)
+    assert exc.value.errno == errno.ENOSPC
+
+
+@pytest.fixture
+def garbage_server():
+    """Responde lixo em vez de HTTP: urllib levanta BadStatusLine, que não é URLError."""
+    import socket
+    import threading
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen()
+
+    def serve():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            conn.recv(65536)
+            conn.sendall(b"isto nao e http\r\n\r\n")
+            conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.getsockname()[1]}/callback"
+    srv.close()
+
+
+def test_notifier_never_raises_on_malformed_response(garbage_server):
+    Notifier(Callback(url=garbage_server, secret="k"), job_id="j1").send("iniciou")
